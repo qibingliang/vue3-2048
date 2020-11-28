@@ -1,22 +1,25 @@
 <template>
     <div class="hello">
         <div v-for="(items,x) in checkerboard" style="display:flex;justify-content:center;" :key="x">
-            <div v-for="(item,y) in items" style="width:20px;height:20px;" :key="`${x}_${y}`">
-                {{item}}
+            <div v-for="(item,y) in items" class="card" :class="`color_${item>128?128:item}`" :key="`${x}_${y}`">
+                {{item?item:''}}
             </div>
         </div>
+        <p style="margin-top:50px;">
+            <button @click="operation('ArrowUp')">上</button>
+        </p>
         <p>
-            <button @click="operation('top')">上</button>
-            <button @click="operation('bottom')">下</button>
-            <button @click="operation('left')">左</button>
-            <button @click="operation('right')">右</button>
+            <button @click="operation('ArrowLeft')">左</button>
+            <button @click="operation('ArrowDown')">下</button>
+            <button @click="operation('ArrowRight')">右</button>
         </p>
     </div>
 </template>
 
 <script lang="ts">
-import { defineComponent,reactive } from "vue";
+import { defineComponent,onBeforeUnmount,onMounted,reactive } from "vue";
 import _ from 'lodash';
+
 
 export default defineComponent({
     name: "HelloWorld",
@@ -24,12 +27,22 @@ export default defineComponent({
         msg: String,
     },
     setup() {
-        const checkerboard = reactive([
+        //接口、类型声明
+        type Checkerboard = number[][];
+        interface Slide {
+            ArrowUp():void;
+            ArrowRight():void;
+            ArrowDown():void;
+            ArrowLeft():void;
+        }
+
+        const checkerboard:Checkerboard = reactive([
             [0,4,16,0],
             [0,4,0,2],
             [0,2,4,4],
             [2,0,4,0]
         ])
+ 
         function arrSort(list:Array<number>){
             let arr = [];
             for (let i = list.length-1; i >= 0; i--) {
@@ -39,7 +52,7 @@ export default defineComponent({
             }
             if(arr.length)list.unshift(...arr);
         }
-        function arrCalculation(list:Array<number>){
+        function arrCalculation(list:Array<number>):Array<number>{
             arrSort(list);
             for (let i = list.length-1; i >= 0; i--) {
                 if(i!==0 && list[i]===list[i-1]){
@@ -50,18 +63,18 @@ export default defineComponent({
             }
             return list;
         }
-        function slide(direction:String){
-            if(direction==='right'){
+        const slide:Slide = {
+            ArrowRight:function(){
                 checkerboard.forEach((el,i)=>{
                     checkerboard[i] = arrCalculation(el);
                 })
-            }
-            else if(direction==='left'){
+            },
+            ArrowLeft:function(){
                 checkerboard.forEach((el,i)=>{
                     checkerboard[i] = arrCalculation(el.reverse()).reverse();
                 })
-            }
-            else if(direction==='bottom'){
+            },
+            ArrowDown:function(){
                 for (let y = 0; y < checkerboard[0].length; y++) {
                     let arrs:Array<number> = checkerboard.map(el=>el[y]);
                     arrs = arrCalculation(arrs)
@@ -69,8 +82,8 @@ export default defineComponent({
                         checkerboard[i][y] = arrs[i];
                     })
                 }
-            }
-            else if(direction==='top'){
+            },
+            ArrowUp:function(){
                 for (let y = 0; y < checkerboard[0].length; y++) {
                     let arrs:Array<number> = checkerboard.map(el=>el[y]).reverse();
                     arrs = arrCalculation(arrs).reverse()
@@ -78,10 +91,10 @@ export default defineComponent({
                         checkerboard[i][y] = arrs[i];
                     })
                 }
-            }
+            },
         }
-        function getZero(){
-            let arr:Array<Array<number>> = [];
+        function getZero():Checkerboard{
+            let arr:Checkerboard = [];
             checkerboard.forEach((items,y)=>{
                 items.forEach((item,x)=>{
                     if(item===0){
@@ -94,22 +107,29 @@ export default defineComponent({
         function operation(direction:String){
             const oldData:String = JSON.stringify(checkerboard)
             console.log(oldData);
-            slide(direction)
+            slide[direction as 'ArrowLeft'|'ArrowRight'|'ArrowUp'|'ArrowDown']()
             const newData:String = JSON.stringify(checkerboard)
+            const arrZero = getZero();
             if(oldData!==newData){
-                const arrZero:Array<Array<number>> = getZero();
                 if(arrZero.length){
                     const [x,y] = arrZero[_.random(0,arrZero.length-1)];
-                    checkerboard[x][y] = _.random(0,2)===0?4:2;
+                    checkerboard[x][y] = _.random(0,3)===0?4:2;
                     const [x2,y2] = arrZero[_.random(0,arrZero.length-1)];
-                    checkerboard[x2][y2] = _.random(0,2)===0?4:2;
+                    checkerboard[x2][y2] = _.random(0,3)===0?4:2;
                 }
             }
         }
-        console.log(checkerboard);
+        onMounted(()=>{
+            document.onkeydown = function(event:any){
+                if(slide[event.code as 'ArrowLeft'|'ArrowRight'|'ArrowUp'|'ArrowDown'])operation(event.code);
+            }
+        })
+        onBeforeUnmount(()=>{
+            document.onkeydown = null
+        })
         return{
             checkerboard,
-            operation
+            operation,
         }
     },
 });
@@ -117,4 +137,19 @@ export default defineComponent({
 
 <!-- Add "scoped" attribute to limit CSS to this component only -->
 <style scoped>
+    .card{
+        width:50px;
+        height:50px;
+        border: solid 1px;
+        line-height: 50px;
+        text-align: center;
+    }
+    .color_0{ background-color: rgba(255, 255, 255, 0.2); }
+    .color_2{ background-color: rgba(255, 255, 255, 0.4); }
+    .color_4{ background-color: rgba(243, 221, 184, 0.77); }
+    .color_8{ background-color: rgba(255, 197, 100, 0.8); }
+    .color_16{ background-color: rgba(245, 127, 43, 0.8); }
+    .color_32{ background-color: rgb(245, 96, 39, 0.9); }
+    .color_64{ background-color: rgb(247, 54, 39, 0.9); }
+    .color_128{ background-color: rgba(247, 216, 77, 0.85); }
 </style>
